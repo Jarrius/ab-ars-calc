@@ -1,13 +1,14 @@
 class App {
 
-    async init() {
-        const query = Object.fromEntries(document.location.search.slice(1).split('&').map(el => el.split('=')));
+    async init(line, track, n, paImport) {
+        const peregon = lines[line][track][Number(n) || 0];
+        const nextPeregon = lines[line][track][Number(n) + 1 || 1];
 
-        const peregon = lines[query.line][query.track][Number(query.n) || 0];
-        const nextPeregon = lines[query.line][query.track][Number(query.n) + 1 || 1];
+        window.peregon = peregon;
+        window.nextPeregon = nextPeregon;
 
-        if (query.import) {
-            await importTrackPlanProfile(query.import, query.track, query.n, peregon, nextPeregon);
+        if (paImport) {
+            await importTrackPlanProfile(paImport, track, n, peregon, nextPeregon);
         }
 
         this.loadPeregon(peregon);
@@ -25,7 +26,7 @@ class App {
 
         const two = new Two({
             width: (jointLength > this.trackLength ? jointLength : this.trackLength) * K + offsetX * 2,
-            height: (peregonCalc[peregonCalc.length - 1].Tk + peregon.tStay + interval) * Ky + 270
+            height: (peregonCalc[peregonCalc.length - 1].Tk + peregon.tStay + this.interval) * Ky + 270
         }).appendTo(document.body);
 
         const drawGraph = new DrawGraph(two, peregon, offsetX, K, Ky);
@@ -50,7 +51,7 @@ class App {
         }, 0);
 
         setTimeout(() => {
-            drawGraph.drawTime(peregonCalc, trainHalf, interval).position.x = offsetX;
+            drawGraph.drawTime(peregonCalc, trainHalf, this.interval).position.x = offsetX;
             two.update();
         }, 0);
 
@@ -83,8 +84,17 @@ class App {
         drawGraph.setTractionCalculator(tractionCalculator);
         drawGraph.drawModes();
 
+        const vksCalculator = new VksCalculator(peregon, peregonConcat);
+        vksCalculator.setTractionCalculator(tractionCalculator);
+        vksCalculator.calc();
+
         const arsCalculator = new ArsCalculator(peregon, peregonConcat);
-        arsCalculator.calcArs();
+        arsCalculator.setTractionCalculator(tractionCalculator);
+        arsCalculator.calc();
+
+        const signalCalculator = new SignalCalculator(peregon, peregonConcat);
+        signalCalculator.setTractionCalculator(tractionCalculator);
+        signalCalculator.calc();
 
         const drawJoints = new DrawJoints(two, peregon, offsetX, K, Ky);
         drawJoints.setTractionCalculator(tractionCalculator);
@@ -96,6 +106,9 @@ class App {
 
         const drawSwitches = new DrawSwitches(two, peregon, offsetX, K, Ky);
         drawSwitches.drawSwitches();
+
+        const drawMKs = new DrawMKs(two, peregon, offsetX, K, Ky);
+        drawMKs.drawMKs();
 
         two.update();
 
@@ -116,10 +129,10 @@ class App {
     }
 
     loadPeregon(peregon) {
-        let trackLength, tStay, curves, slopes, modes;
-        ({ trackLength, tStay, curves, slopes, modes } = peregon);
+        const { trackLength, tStay, curves, slopes, modes, interval } = peregon;
         this.trackLength = trackLength;
         this.tStay = tStay;
+        this.interval = Math.round(3600 / (interval || 40));
         this.curves = curves;
         this.slopes = slopes;
         this.modes = modes;
